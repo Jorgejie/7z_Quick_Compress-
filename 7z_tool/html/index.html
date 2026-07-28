@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>7z 快速压缩</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#09090b;--bg2:#18181b;--bg3:#27272a;
+  --border:#27272a;--border2:#3f3f46;
+  --text:#fafafa;--text2:#a1a1aa;--text3:#52525b;
+  --green:#22c55e;--green-dim:#16a34a;--green-glow:rgba(34,197,94,.15);
+  --red:#ef4444;
+  --mono:'SF Mono','Cascadia Code','Fira Code','Menlo','Consolas',monospace;
+}
+html,body{font-family:var(--mono);background:var(--bg);color:var(--text);font-size:16px;line-height:1.6;min-height:100vh;-webkit-font-smoothing:antialiased}
+.shell{max-width:860px;margin:0 auto;padding:48px 40px 80px}
+
+.prompt-line{display:flex;align-items:baseline;gap:8px;margin-bottom:32px;font-size:16px}
+.prompt-user{color:var(--green);font-weight:700}.prompt-at{color:var(--text3)}.prompt-path{color:var(--text2)}.prompt-cmd{color:var(--text)}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.segments{display:flex;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.seg{padding:10px 24px;font-size:15px;font-family:var(--mono);color:var(--text3);cursor:pointer;border:none;background:transparent;transition:all .15s}
+.seg:hover{color:var(--text2)}.seg.active{background:var(--green);color:#000;font-weight:700}
+.icon-btn{width:42px;height:42px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s;font-family:var(--mono)}
+.icon-btn:hover{border-color:var(--border2);color:var(--text)}.icon-btn.active{border-color:var(--green);color:var(--green)}
+
+.drop-zone{border:2px dashed var(--border2);border-radius:14px;padding:56px 32px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2);margin-bottom:12px}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--green);background:var(--green-glow)}
+.drop-zone .icon{font-size:36px;margin-bottom:10px;color:var(--text3);transition:color .2s}
+.drop-zone:hover .icon{color:var(--green)}
+.drop-zone .title{font-size:17px;color:var(--text2);margin-bottom:4px}.drop-zone .sub{font-size:14px;color:var(--text3)}
+
+.manual-row{display:flex;gap:8px;margin-bottom:28px}
+.manual-row input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:15px;font-family:var(--mono);color:var(--text);outline:none;transition:border .15s}
+.manual-row input:focus{border-color:var(--green)}.manual-row input::placeholder{color:var(--text3)}
+.manual-row button{padding:11px 18px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:14px;font-family:var(--mono);cursor:pointer;transition:all .15s;white-space:nowrap}
+.manual-row button:hover{border-color:var(--border2);color:var(--text)}
+.manual-row .pick{background:var(--green);color:#000;border-color:var(--green);font-weight:700}.manual-row .pick:hover{background:var(--green-dim)}
+
+.label{font-size:13px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:24px 0 12px;display:flex;align-items:center;gap:10px}
+.label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.file-item{display:flex;align-items:center;padding:10px 14px;border-radius:8px;font-size:15px;transition:background .1s;margin-bottom:4px}
+.file-item:hover{background:var(--bg2)}.file-item .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.file-item .rm{width:26px;height:26px;border-radius:6px;border:none;background:transparent;color:var(--text3);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.file-item .rm:hover{background:rgba(239,68,68,.15);color:var(--red)}
+.file-summary{font-size:13px;color:var(--text3);margin-top:6px}
+
+.opt{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.opt label{font-size:15px;color:var(--text3);min-width:52px;flex-shrink:0}
+.fmt-group{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.fmt-btn{padding:8px 22px;border:none;background:var(--bg2);font-size:15px;font-family:var(--mono);color:var(--text3);cursor:pointer;transition:all .15s}
+.fmt-btn:not(:last-child){border-right:1px solid var(--border)}.fmt-btn.active{background:var(--green);color:#000;font-weight:700}.fmt-btn:hover:not(.active){color:var(--text)}
+.slider-wrap{display:flex;align-items:center;gap:14px;flex:1}
+input[type=range]{flex:1;height:4px;-webkit-appearance:none;appearance:none;background:var(--border2);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;box-shadow:0 0 12px var(--green-glow)}
+.lvl-val{font-size:15px;color:var(--green);min-width:72px;text-align:right}
+
+.opt-in{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:15px;font-family:var(--mono);color:var(--text);outline:none;transition:border .15s;width:140px}
+.opt-in:focus{border-color:var(--green)}.opt-in::placeholder{color:var(--text3)}.opt-in.wide{width:100%;flex:1}
+
+.dir-row{display:flex;align-items:center;gap:8px;width:100%}.dir-row input{flex:1}
+.browse{padding:9px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:14px;font-family:var(--mono);cursor:pointer;transition:all .15s;white-space:nowrap}
+.browse:hover{border-color:var(--border2);color:var(--text)}
+.qdirs{display:flex;gap:6px;margin-top:6px}
+.qdir{padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:transparent;font-size:13px;font-family:var(--mono);color:var(--text3);cursor:pointer;transition:all .15s}
+.qdir:hover{border-color:var(--green);color:var(--green)}
+
+.actions{margin-top:28px;display:flex;gap:10px;align-items:center}
+.btn{padding:13px 28px;border:1px solid var(--border);border-radius:10px;font-size:16px;font-family:var(--mono);cursor:pointer;transition:all .15s;flex:1;text-align:center}
+.btn-go{background:var(--green);color:#000;border-color:var(--green);font-weight:700}.btn-go:hover{background:var(--green-dim)}.btn-go:disabled{background:var(--bg3);border-color:var(--bg3);color:var(--text3);cursor:not-allowed}
+.btn-x{background:transparent;color:var(--text3);flex:0;padding:13px 20px}.btn-x:hover{border-color:var(--border2);color:var(--text)}
+.btn-arrow{width:48px;height:48px;border-radius:50%;background:var(--green);border:none;color:#000;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.btn-arrow:hover{background:var(--green-dim)}.btn-arrow:disabled{background:var(--bg3);color:var(--text3);cursor:not-allowed}
+
+.progress{margin-top:20px}.progress .track{height:3px;background:var(--border);border-radius:2px;overflow:hidden}.progress .fill{height:100%;background:var(--green);border-radius:2px;transition:width .4s}.progress .plabel{font-size:13px;color:var(--text3);margin-top:6px}
+
+.log{margin-top:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;font-family:var(--mono);font-size:13px;color:var(--text3);max-height:220px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;line-height:1.7}
+
+.done{margin-top:20px;border:1px solid rgba(34,197,94,.3);border-radius:12px;padding:20px 22px;background:var(--green-glow)}
+.done .ok{color:var(--green);font-size:17px;font-weight:700;margin-bottom:8px}
+.done .info{font-size:15px;color:var(--text2);line-height:1.8;word-break:break-all}.done .info b{color:var(--text);font-weight:500}
+.done .actions{margin-top:14px}
+.btn-open{background:var(--green);color:#000;border-color:var(--green);font-weight:700}.btn-open:hover{background:var(--green-dim)}
+
+.err{margin-top:20px;border:1px solid rgba(239,68,68,.3);border-radius:12px;padding:20px 22px;background:rgba(239,68,68,.08)}
+.err .et{color:var(--red);font-size:17px;font-weight:700;margin-bottom:8px}
+.err .em{font-size:15px;color:var(--text2);white-space:pre-wrap;word-break:break-all}
+
+.warn{border:1px solid rgba(234,179,8,.3);background:rgba(234,179,8,.08);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:15px;color:#eab308}
+.warn code{background:rgba(234,179,8,.15);padding:2px 6px;border-radius:4px}
+
+.settings{border:1px solid var(--border);border-radius:12px;padding:22px 24px;margin-top:28px;background:var(--bg2);animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.settings .stitle{font-size:15px;font-weight:700;color:var(--green);margin-bottom:16px}
+.srow{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.srow label{font-size:15px;color:var(--text2)}
+.sactions{display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)}
+.btn-s{padding:7px 18px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:var(--mono);cursor:pointer;transition:all .15s;background:transparent;color:var(--text2)}
+.btn-s:hover{border-color:var(--border2);color:var(--text)}
+.btn-sg{background:var(--green);color:#000;border-color:var(--green);font-weight:700}.btn-sg:hover{background:var(--green-dim)}
+
+.tags{margin-top:22px;display:flex;gap:6px;flex-wrap:wrap;font-size:13px;color:var(--text3)}
+.tag{padding:4px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text2)}
+
+.toast{position:fixed;top:24px;left:50%;transform:translateX(-50%) translateY(-80px);padding:12px 24px;border-radius:8px;font-size:15px;font-weight:700;z-index:999;transition:transform .2s;font-family:var(--mono)}
+.toast.show{transform:translateX(-50%) translateY(0)}.toast.success{background:var(--green);color:#000}.toast.error{background:var(--red);color:#fff}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const LEVEL_TEXT = ['仅存储','最快','','','','标准','','','','最大'];
+const DEFAULT_CONFIG = { format:'7z', level:9, password:'', split:'', output_dir:'' };
+
+function api(path, body) {
+  return fetch(path, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body||{})
+  }).then(r=>r.json());
+}
+
+function App() {
+  const [files, setFiles] = useState([]);
+  const [format, setFormat] = useState('7z');
+  const [level, setLevel] = useState(9);
+  const [password, setPassword] = useState('');
+  const [split, setSplit] = useState('');
+  const [outputDir, setOutputDir] = useState('');
+  const [outputName, setOutputName] = useState('');
+  const [outputNameManual, setOutputNameManual] = useState(false);
+  const [manualPath, setManualPath] = useState('');
+  const [tab, setTab] = useState('compress');       // 'compress' | 'settings'
+  const [showSettings, setShowSettings] = useState(false);
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [sFormat, setSFormat] = useState('7z');
+  const [sLevel, setSLevel] = useState(9);
+  const [sOutputDir, setSOutputDir] = useState('');
+  const [compressing, setCompressing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [logText, setLogText] = useState('');
+  const [showLog, setShowLog] = useState(false);
+  const [result, setResult] = useState(null);        // { success, output, size_mb, duration, error }
+  const [toast, setToast] = useState(null);          // { msg, type }
+  const [no7z, setNo7z] = useState(false);
+  const [dragover, setDragover] = useState(false);
+  const outputFilePath = useRef('');
+  const logRef = useRef(null);
+
+  // ── toast ──
+  const showToast = useCallback((msg, type) => {
+    setToast({msg, type});
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  // ── log ──
+  const log = useCallback((msg) => {
+    setLogText(prev => prev + msg + '\n');
+    setShowLog(true);
+    setTimeout(() => { if(logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, 50);
+  }, []);
+
+  // ── init: load config + check 7z ──
+  useEffect(() => {
+    api('/get_config').then(c => {
+      setConfig(c);
+      setFormat(c.format||'7z');
+      setLevel(c.level||9);
+      setPassword(c.password||'');
+      setSplit(c.split||'');
+      if(c.output_dir) setOutputDir(c.output_dir);
+    }).catch(()=>{});
+    api('/check_7z').then(d => { if(!d.found) setNo7z(true); });
+    if('Notification' in window && Notification.permission==='default') Notification.requestPermission();
+  }, []);
+
+  // ── auto output name ──
+  useEffect(() => {
+    if(!files.length || outputNameManual) return;
+    setOutputName(files[0].name.replace(/\/$/,'').split('/').pop() + '.' + format);
+  }, [files, format, outputNameManual]);
+
+  // ── auto output dir ──
+  useEffect(() => {
+    if(!files.length) return;
+    if(config.output_dir) { setOutputDir(config.output_dir); return; }
+    const p = files[0].path;
+    const dir = p.substring(0, p.lastIndexOf('/'));
+    if(dir) setOutputDir(dir);
+  }, [files, config.output_dir]);
+
+  // ── tab switch ──
+  const switchTab = useCallback((t) => {
+    setTab(t);
+    if(t === 'compress') setShowSettings(false);
+    else setShowSettings(true);
+  }, []);
+
+  const toggleGear = useCallback(() => {
+    setShowSettings(prev => {
+      const next = !prev;
+      setTab(next ? 'settings' : 'compress');
+      return next;
+    });
+  }, []);
+
+  // ── file ops ──
+  const addFile = useCallback((path, name) => {
+    setFiles(prev => { if(prev.find(f=>f.path===path)) return prev; return [...prev, {path, name}]; });
+    setResult(null); setShowLog(false); setLogText('');
+  }, []);
+
+  const removeFile = useCallback((idx) => {
+    setFiles(prev => prev.filter((_,i) => i!==idx));
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setFiles([]); setResult(null); setShowLog(false); setLogText(''); setOutputNameManual(false);
+  }, []);
+
+  const addManual = useCallback(() => {
+    const p = manualPath.trim(); if(!p) return;
+    api('/stat',{path:p}).then(d => {
+      if(d.exists){ addFile(d.path, d.name); setManualPath(''); }
+      else showToast('文件不存在','error');
+    });
+  }, [manualPath, addFile, showToast]);
+
+  const pickFiles = useCallback(() => {
+    api('/pick_files').then(d => { if(d.paths) d.paths.forEach(p => addFile(p, p.split('/').pop())); });
+  }, [addFile]);
+
+  const pickFolder = useCallback(() => {
+    api('/pick_folder').then(d => { if(d.path) addFile(d.path, d.path.split('/').pop()+'/'); });
+  }, [addFile]);
+
+  const chooseDir = useCallback(() => {
+    api('/pick_folder').then(d => { if(d.path) setOutputDir(d.path); });
+  }, []);
+
+  // ── drag ──
+  const onDragOver = useCallback((e) => { e.preventDefault(); setDragover(true); }, []);
+  const onDragLeave = useCallback((e) => { e.preventDefault(); setDragover(false); }, []);
+  const onDrop = useCallback((e) => {
+    e.preventDefault(); setDragover(false);
+    for(const f of e.dataTransfer.files) addFile(f.path||f.name, f.name);
+  }, [addFile]);
+
+  // ── compress ──
+  const startCompress = useCallback(() => {
+    if(!files.length || compressing) return;
+    setCompressing(true); setProgress(30); setResult(null);
+    setShowLog(true); setLogText('');
+    log('> 正在压缩 '+files.length+' 个文件...');
+
+    api('/compress',{
+      files: files.map(f=>f.path),
+      output: outputName,
+      output_dir: outputDir,
+      format, level, password, split
+    }).then(d => {
+      setProgress(100); setCompressing(false);
+      if(d.success){
+        outputFilePath.current = d.output;
+        setResult({ success:true, output:d.output, size_mb:d.size_mb, duration:d.duration });
+        log('> 压缩完成 ✓');
+        showToast('压缩完成 · '+d.size_mb+' MB','success');
+      } else {
+        setResult({ success:false, error: d.error||'未知错误' });
+        log('> 错误: '+d.error);
+        showToast('压缩失败','error');
+      }
+    }).catch(err => {
+      setCompressing(false);
+      setResult({ success:false, error:'网络错误: '+err });
+      log('> 请求失败: '+err);
+      showToast('请求失败','error');
+    });
+  }, [files, outputName, outputDir, format, level, password, split, compressing, log, showToast]);
+
+  const openInFinder = useCallback(() => {
+    api('/open_finder',{path:outputFilePath.current});
+  }, []);
+
+  const resetAll = useCallback(() => {
+    setFiles([]); setResult(null); setShowLog(false); setLogText(''); setOutputNameManual(false);
+  }, []);
+
+  // ── settings ──
+  const openSettings = useCallback(() => {
+    setSFormat(config.format||'7z');
+    setSLevel(config.level||9);
+    setSOutputDir(config.output_dir||'');
+  }, [config]);
+
+  useEffect(() => { if(showSettings) openSettings(); }, [showSettings, openSettings]);
+
+  const saveSettings = useCallback(() => {
+    const newConfig = { ...config, format:sFormat, level:sLevel, output_dir:sOutputDir.trim() };
+    api('/save_config', newConfig).then(() => {
+      setConfig(newConfig);
+      setFormat(sFormat); setLevel(sLevel);
+      if(sOutputDir.trim()) setOutputDir(sOutputDir.trim());
+      showToast('设置已保存','success');
+      setShowSettings(false); setTab('compress');
+    }).catch(()=>showToast('保存失败','error'));
+  }, [config, sFormat, sLevel, sOutputDir, showToast]);
+
+  const handleFmtBtn = useCallback((f) => {
+    setFormat(f);
+    if(outputName) setOutputName(prev => prev.replace(/\.(7z|zip)$/,'')+'.'+f);
+  }, [outputName]);
+
+  // ── render ──
+  return (
+    <div className="shell">
+      {toast && <div className={`toast ${toast.type} ${toast?'show':''}`}>{toast.msg}</div>}
+
+      <div className="prompt-line">
+        <span className="prompt-user">user</span>
+        <span className="prompt-at">@</span>
+        <span className="prompt-path">mac</span>
+        <span className="prompt-at">~</span>
+        <span className="prompt-cmd">$ 7z compress</span>
+      </div>
+
+      <div className="topbar">
+        <div className="segments">
+          <button className={`seg ${tab==='compress'?'active':''}`} onClick={()=>switchTab('compress')}>压缩</button>
+          <button className={`seg ${tab==='settings'?'active':''}`} onClick={()=>switchTab('settings')}>设置</button>
+        </div>
+        <button className={`icon-btn ${showSettings?'active':''}`} onClick={toggleGear} title="默认设置">⚙</button>
+      </div>
+
+      {no7z && (
+        <div className="warn">未检测到 7z，请先安装 → <code>brew install p7zip</code></div>
+      )}
+
+      {tab === 'compress' ? (
+        <>
+          <div className={`drop-zone ${dragover?'dragover':''}`}
+               onClick={pickFiles}
+               onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}>
+            <div className="icon">⬡</div>
+            <div className="title">拖拽文件到此处</div>
+            <div className="sub">或点击选择文件</div>
+          </div>
+
+          <div className="manual-row">
+            <input type="text" value={manualPath} placeholder="输入文件路径..."
+                   onChange={e=>setManualPath(e.target.value)}
+                   onKeyDown={e=>{if(e.key==='Enter')addManual()}} />
+            <button onClick={addManual}>添加</button>
+            <button className="pick" onClick={pickFiles}>选择文件</button>
+            <button onClick={pickFolder}>文件夹</button>
+          </div>
+
+          {files.length > 0 && (
+            <>
+              <div className="label">文件</div>
+              {files.map((f,i) => (
+                <div key={i} className="file-item">
+                  <span className="fname">{f.name}</span>
+                  <button className="rm" onClick={()=>removeFile(i)}>×</button>
+                </div>
+              ))}
+              <div className="file-summary">共 {files.length} 项</div>
+
+              <div className="label">选项</div>
+              <div className="opt">
+                <label>格式</label>
+                <div className="fmt-group">
+                  <button className={`fmt-btn ${format==='7z'?'active':''}`} onClick={()=>handleFmtBtn('7z')}>7z</button>
+                  <button className={`fmt-btn ${format==='zip'?'active':''}`} onClick={()=>handleFmtBtn('zip')}>zip</button>
+                </div>
+              </div>
+              <div className="opt">
+                <label>级别</label>
+                <div className="slider-wrap">
+                  <input type="range" min="0" max="9" value={level} onChange={e=>setLevel(+e.target.value)} />
+                  <span className="lvl-val">{level} {LEVEL_TEXT[level]}</span>
+                </div>
+              </div>
+              <div className="opt">
+                <label>密码</label>
+                <input type="password" className="opt-in wide" value={password} placeholder="留空不加密"
+                       onChange={e=>setPassword(e.target.value)} />
+              </div>
+              <div className="opt">
+                <label>分卷</label>
+                <input type="text" className="opt-in" value={split} placeholder="如 50m"
+                       onChange={e=>setSplit(e.target.value)} />
+              </div>
+              <div className="opt" style={{alignItems:'flex-start',flexDirection:'column',gap:4}}>
+                <label style={{minWidth:'auto'}}>输出</label>
+                <div className="dir-row">
+                  <input type="text" className="opt-in wide" value={outputDir} placeholder="源文件所在目录"
+                         onChange={e=>setOutputDir(e.target.value)} />
+                  <button className="browse" onClick={chooseDir}>···</button>
+                </div>
+                <div className="qdirs">
+                  <button className="qdir" onClick={()=>setOutputDir('~/Desktop')}>桌面</button>
+                  <button className="qdir" onClick={()=>setOutputDir('~/Downloads')}>下载</button>
+                  <button className="qdir" onClick={()=>setOutputDir('~/Documents')}>文稿</button>
+                </div>
+              </div>
+              <div className="opt">
+                <label>文件名</label>
+                <input type="text" className="opt-in wide" value={outputName} placeholder="自动生成"
+                       onChange={e=>{setOutputName(e.target.value);setOutputNameManual(true)}} />
+              </div>
+
+              <div className="tags">
+                <span className="tag">{format}</span>
+                <span className="tag">级别 {level}</span>
+                <span className="tag">{outputDir ? outputDir.replace(/^.*\//,'…/') : '源目录'}</span>
+              </div>
+
+              <div className="actions">
+                <button className="btn btn-go" disabled={compressing} onClick={startCompress}>
+                  {compressing ? '压缩中...' : '开始压缩'}
+                </button>
+                <button className="btn btn-x" onClick={clearAll}>清空</button>
+                <button className="btn-arrow" disabled={compressing} onClick={startCompress}>→</button>
+              </div>
+
+              {compressing && (
+                <div className="progress">
+                  <div className="track"><div className="fill" style={{width:progress+'%'}}></div></div>
+                  <div className="plabel">压缩中...</div>
+                </div>
+              )}
+
+              {showLog && (
+                <div className="log" ref={logRef}>{logText}</div>
+              )}
+
+              {result && result.success && (
+                <div className="done">
+                  <div className="ok">✓ 完成</div>
+                  <div className="info">
+                    <b>输出:</b> {result.output}<br/>
+                    <b>大小:</b> {result.size_mb} MB<br/>
+                    <b>耗时:</b> {result.duration}
+                  </div>
+                  <div className="actions">
+                    <button className="btn btn-open" onClick={openInFinder}>在 Finder 中打开</button>
+                    <button className="btn btn-x" onClick={resetAll}>继续</button>
+                  </div>
+                </div>
+              )}
+
+              {result && !result.success && (
+                <div className="err">
+                  <div className="et">✗ 错误</div>
+                  <div className="em">{result.error}</div>
+                  <div className="actions">
+                    <button className="btn btn-x" onClick={resetAll}>重试</button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        /* ── Settings Tab ── */
+        <div className="settings" style={{marginTop:0}}>
+          <div className="stitle">⚙ 默认设置</div>
+          <div className="srow">
+            <label>格式</label>
+            <div className="fmt-group">
+              <button className={`fmt-btn ${sFormat==='7z'?'active':''}`} onClick={()=>setSFormat('7z')}>7z</button>
+              <button className={`fmt-btn ${sFormat==='zip'?'active':''}`} onClick={()=>setSFormat('zip')}>zip</button>
+            </div>
+          </div>
+          <div className="srow">
+            <label>级别</label>
+            <div className="slider-wrap" style={{maxWidth:240}}>
+              <input type="range" min="0" max="9" value={sLevel} onChange={e=>setSLevel(+e.target.value)} />
+              <span className="lvl-val">{sLevel}</span>
+            </div>
+          </div>
+          <div className="srow">
+            <label>输出</label>
+            <input type="text" className="opt-in" value={sOutputDir} placeholder="留空=源文件目录" style={{width:220}}
+                   onChange={e=>setSOutputDir(e.target.value)} />
+          </div>
+          <div className="sactions">
+            <button className="btn-s" onClick={()=>{setShowSettings(false);setTab('compress')}}>取消</button>
+            <button className="btn-s btn-sg" onClick={saveSettings}>保存</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

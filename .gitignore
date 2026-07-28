@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# 构建产物
+7z_tool/build/
+7z_tool/dist/
+7z_tool/html_dist/
+7z_tool/node_modules/
+7z_tool/*.spec
+
+# 备份与本地配置
+*.backup
+.claude/

@@ -1,0 +1,32 @@
+第三方组件声明
+
+本项目分发了以下第三方软件：
+
+---
+
+p7zip (7z 命令行工具)
+  版本: 17.06
+  协议: GNU Lesser General Public License (LGPL)
+  网站: https://p7zip.sourceforge.net/
+  原作者: Igor Pavlov (7-Zip), p7zip 团队
+
+  p7zip 是 7-Zip 在 POSIX 系统上的移植版本，基于 LGPL 协议发布。
+  本项目以二进制形式分发 p7zip，未修改其源代码。
+
+  根据 LGPL 要求：
+  - p7zip 原始源代码可在 https://sourceforge.net/projects/p7zip/ 获取
+  - 你可以自行替换应用内的 p7zip 二进制文件（位于 .app/Contents/Resources/p7zip/）
+  - LGPL 全文见第 3 版: https://www.gnu.org/licenses/lgpl-3.0.html
+
+---
+
+PyInstaller (构建工具)
+  协议: GPL-compatible (明确允许闭源分发)
+  网站: https://pyinstaller.org/
+
+  PyInstaller 仅用于构建阶段，未随应用分发其代码。
+  其 bootloader 的协议允许在闭源或开源产品中使用。
+
+---
+
+如需更多信息，请提交 Issue 到本仓库。
